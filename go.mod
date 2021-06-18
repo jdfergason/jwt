@@ -1,8 +1,8 @@
-module github.com/gofiber/jwt/v2
+module github.com/jdfergason/jwt/v2
 
-go 1.14
+go 1.15
 
 require (
-	github.com/form3tech-oss/jwt-go v3.2.3+incompatible
 	github.com/gofiber/fiber/v2 v2.13.0
+	github.com/lestrrat-go/jwx v1.2.1
 )

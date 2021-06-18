@@ -6,13 +6,13 @@
 package jwtware
 
 import (
+	"context"
 	"errors"
-	"fmt"
-	"reflect"
 	"strings"
 
-	"github.com/form3tech-oss/jwt-go"
 	"github.com/gofiber/fiber/v2"
+	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/lestrrat-go/jwx/jwt"
 )
 
 // Config defines the config for BasicAuth middleware
@@ -30,26 +30,15 @@ type Config struct {
 	// Optional. Default: 401 Invalid or expired JWT
 	ErrorHandler fiber.ErrorHandler
 
-	// Signing key to validate token. Used as fallback if SigningKeys has length 0.
-	// Required. This or SigningKeys.
-	SigningKey interface{}
+	// JWKS AutoRefresh to retrieve json web keyset
+	Jwks *jwk.AutoRefresh
 
-	// Map of signing keys to validate token with kid field usage.
-	// Required. This or SigningKey.
-	SigningKeys map[string]interface{}
-
-	// Signing method, used to check token signing method.
-	// Optional. Default: "HS256".
-	// Possible values: "HS256", "HS384", "HS512", "ES256", "ES384", "ES512", "RS256", "RS384", "RS512"
-	SigningMethod string
+	// JwksUrl URL to fetch jwks from
+	JwksUrl string
 
 	// Context key to store user information from the token into context.
 	// Optional. Default: "user".
 	ContextKey string
-
-	// Claims are extendable claims data defining token content.
-	// Optional. Default value jwt.MapClaims
-	Claims jwt.Claims
 
 	// TokenLookup is a string in the form of "<source>:<name>" that is used
 	// to extract token from the request.
@@ -64,8 +53,6 @@ type Config struct {
 	// AuthScheme to be used in the Authorization header.
 	// Optional. Default: "Bearer".
 	AuthScheme string
-
-	keyFunc jwt.Keyfunc
 }
 
 // New ...
@@ -89,38 +76,17 @@ func New(config ...Config) fiber.Handler {
 			}
 		}
 	}
-	if cfg.SigningKey == nil && len(cfg.SigningKeys) == 0 {
-		panic("Fiber: JWT middleware requires signing key")
-	}
-	if cfg.SigningMethod == "" {
-		cfg.SigningMethod = "HS256"
+	if cfg.Jwks == nil {
+		panic("Fiber: JWT middleware requires a jwks signing key")
 	}
 	if cfg.ContextKey == "" {
 		cfg.ContextKey = "user"
-	}
-	if cfg.Claims == nil {
-		cfg.Claims = jwt.MapClaims{}
 	}
 	if cfg.TokenLookup == "" {
 		cfg.TokenLookup = "header:" + fiber.HeaderAuthorization
 	}
 	if cfg.AuthScheme == "" {
 		cfg.AuthScheme = "Bearer"
-	}
-	cfg.keyFunc = func(t *jwt.Token) (interface{}, error) {
-		// Check the signing method
-		if t.Method.Alg() != cfg.SigningMethod {
-			return nil, fmt.Errorf("Unexpected jwt signing method=%v", t.Header["alg"])
-		}
-		if len(cfg.SigningKeys) > 0 {
-			if kid, ok := t.Header["kid"].(string); ok {
-				if key, ok := cfg.SigningKeys[kid]; ok {
-					return key, nil
-				}
-			}
-			return nil, fmt.Errorf("Unexpected jwt key id=%v", t.Header["kid"])
-		}
-		return cfg.SigningKey, nil
 	}
 	// Initialize
 	extractors := make([]func(c *fiber.Ctx) (string, error), 0)
@@ -158,16 +124,13 @@ func New(config ...Config) fiber.Handler {
 		if err != nil {
 			return cfg.ErrorHandler(c, err)
 		}
-		token := new(jwt.Token)
 
-		if _, ok := cfg.Claims.(jwt.MapClaims); ok {
-			token, err = jwt.Parse(auth, cfg.keyFunc)
-		} else {
-			t := reflect.ValueOf(cfg.Claims).Type().Elem()
-			claims := reflect.New(t).Interface().(jwt.Claims)
-			token, err = jwt.ParseWithClaims(auth, claims, cfg.keyFunc)
-		}
-		if err == nil && token.Valid {
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		keySet, _ := cfg.Jwks.Fetch(cctx, cfg.JwksUrl)
+
+		token, err := jwt.Parse([]byte(auth), jwt.WithKeySet(keySet))
+		if err == nil {
 			// Store user information from token into context.
 			c.Locals(cfg.ContextKey, token)
 			return cfg.SuccessHandler(c)
