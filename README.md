@@ -6,6 +6,8 @@
 ![Security](https://github.com/gofiber/jwt/workflows/Security/badge.svg)
 ![Linter](https://github.com/gofiber/jwt/workflows/Linter/badge.svg)
 
+** Port to use JWX Library **
+
 JWT returns a JSON Web Token (JWT) auth middleware.
 For valid token, it sets the user in Ctx.Locals and calls next handler.
 For invalid token, it returns "401 - Unauthorized" error.
@@ -19,8 +21,7 @@ This middleware supports Fiber v1 & v2, install accordingly.
 
 ```
 go get -u github.com/gofiber/fiber/v2
-go get -u github.com/gofiber/jwt/v2
-go get -u github.com/form3tech-oss/jwt-go
+go get -u github.com/jdfergason/jwt/v2
 ```
 
 ### Signature
