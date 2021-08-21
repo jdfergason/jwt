@@ -147,7 +147,7 @@ func jwtFromHeader(header string, authScheme string) func(c *fiber.Ctx) (string,
 		if len(auth) > l+1 && strings.EqualFold(auth[:l], authScheme) {
 			return auth[l+1:], nil
 		}
-		return "", errors.New("Missing or malformed JWT")
+		return "", errors.New("missing or malformed JWT")
 	}
 }
 
@@ -156,7 +156,7 @@ func jwtFromQuery(param string) func(c *fiber.Ctx) (string, error) {
 	return func(c *fiber.Ctx) (string, error) {
 		token := c.Query(param)
 		if token == "" {
-			return "", errors.New("Missing or malformed JWT")
+			return "", errors.New("missing or malformed JWT")
 		}
 		return token, nil
 	}
@@ -167,7 +167,7 @@ func jwtFromParam(param string) func(c *fiber.Ctx) (string, error) {
 	return func(c *fiber.Ctx) (string, error) {
 		token := c.Params(param)
 		if token == "" {
-			return "", errors.New("Missing or malformed JWT")
+			return "", errors.New("missing or malformed JWT")
 		}
 		return token, nil
 	}
@@ -178,7 +178,7 @@ func jwtFromCookie(name string) func(c *fiber.Ctx) (string, error) {
 	return func(c *fiber.Ctx) (string, error) {
 		token := c.Cookies(name)
 		if token == "" {
-			return "", errors.New("Missing or malformed JWT")
+			return "", errors.New("missing or malformed JWT")
 		}
 		return token, nil
 	}
